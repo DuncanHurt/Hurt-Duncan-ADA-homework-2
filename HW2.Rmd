@@ -1,0 +1,58 @@
+---
+title: "HW2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Challenge 1
+```{r}
+
+library(tidyverse)
+
+
+#Step 1: creating the tibble 'd'
+
+d <- read_csv("https://raw.githubusercontent.com/difiore/ADA-datasets/master/IMDB-movies.csv")
+
+
+#Step 2: filtering 'd'
+
+d <- filter(d, startYear >= 1920 & startYear <= 1979 & runtimeMinutes < 240)
+
+#Step 3: Creating a new column for 'd', named 'decade', and populating it with a value that is determined by the value of 'startYear'
+
+for (i in 1:nrow(d))
+  {
+if (d[i, "startYear"] >= 1920 & d[i, "startYear"] <= 1929) {d[i, "decade"] <- "20s"}
+else {
+if (d[i, "startYear"] >= 1930 & d[i, "startYear"] <= 1939) {d[i, "decade"] <- "30s"}
+else {
+if (d[i, "startYear"] >= 1940 & d[i, "startYear"] <= 1949) {d[i, "decade"] <- "40s"}
+else{
+if (d[i, "startYear"] >= 1950 & d[i, "startYear"] <= 1959) {d[i, "decade"] <- "50s"}
+else{
+if (d[i, "startYear"] >= 1960 & d[i, "startYear"] <= 1969) {d[i, "decade"] <- "60s"}
+else{
+if (d[i, "startYear"] >= 1970 & d[i, "startYear"] <= 1979) {d[i, "decade"] <- "70s"}
+}}}}}
+  }
+
+#Step 4: 
+
+p <- ggplot(data = d, mapping = aes(x = runtimeMinutes)) + geom_histogram(color = "black", fill = "cyan")
+
+p <- p + facet_wrap(~decade, ncol = 3)
+
+p
+
+
+
+
+
+
+
+```
