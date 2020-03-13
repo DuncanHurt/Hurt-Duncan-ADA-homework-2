@@ -1,5 +1,7 @@
 ---
-title: "HW2"
+title: "Homework 2"
+author: "Duncan Hurt"
+date: "March 13, 2020"
 output: html_document
 ---
 
@@ -7,23 +9,47 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+#### ANT 388 (Applied Data Analysis) Spring 2020
 
 ## Challenge 1
-```{r}
+```{r warning = FALSE, message = FALSE}
+
+#Step 0: Loading necessary packages, telling our tibbles to display more decimal places
 
 library(tidyverse)
+library(mosaic)
+library(gridExtra)
+options(pillar.sigfig = 4)
 
 
-#Step 1: creating the tibble 'd'
+#Step 1: Creating the tibble 'd' (using readr). Also, printing a little excerpt of 'd',
+# which I will continue to do below, because something within me demands to see outputs
 
 d <- read_csv("https://raw.githubusercontent.com/difiore/ADA-datasets/master/IMDB-movies.csv")
 
+head(select(d, tconst, startYear, runtimeMinutes))
 
-#Step 2: filtering 'd'
+
+
+#Step 2: filtering 'd' (using dplyr)
 
 d <- filter(d, startYear >= 1920 & startYear <= 1979 & runtimeMinutes < 240)
 
-#Step 3: Creating a new column for 'd', named 'decade', and populating it with a value that is determined by the value of 'startYear'
+head(select(d, tconst, startYear, runtimeMinutes))
+
+
+
+#Step 2.5: checking to see if we have any NA values in the variables we'll be working
+# with (so we know whether or not to bother with na.rm arguments, etc...). Result is 
+# no NA values, which is good news.
+
+(paste(any(is.na(d[["startYear"]])), any(is.na(d[["runtimeMinutes"]])), sep = ", "))
+
+
+
+#Step 3: Creating a new column for 'd' named 'decade', and populating it with a value
+# that is determined by the value of 'startYear'(using base R -- I'm sure there are more
+# elegant solutions, but this is what I've got for now)
 
 for (i in 1:nrow(d))
   {
@@ -40,19 +66,456 @@ else{
 if (d[i, "startYear"] >= 1970 & d[i, "startYear"] <= 1979) {d[i, "decade"] <- "70s"}
 }}}}}
   }
-
-#Step 4: 
-
-p <- ggplot(data = d, mapping = aes(x = runtimeMinutes)) + geom_histogram(color = "black", fill = "cyan")
-
-p <- p + facet_wrap(~decade, ncol = 3)
-
-p
+head(select(d, tconst, startYear, runtimeMinutes, decade))
 
 
 
+#Step 4: creating a histogram for each decade to visualize the distribution of the
+# 'runtimeMinutes' variable (using ggplot2)
+
+p <- ggplot(data = d, mapping = aes(x = runtimeMinutes)) + geom_histogram(color = "black", fill = "cyan") + xlab("Runtime in Minutes") + ylab("Count") + ggtitle("Movie Runtimes by Decade")
+
+(p <- p + facet_wrap(~decade, ncol = 3))
 
 
 
+#Step 5: creating the tibble 'results' to show us the population mean and population SD
+# of the runtimeMinutes variable for each decade (using dplyr and magrittr)
 
+(d %>% group_by(decade) %>%
+  summarise(
+  popMean = mean(runtimeMinutes),
+  popSD = sqrt(sum((runtimeMinutes - mean(runtimeMinutes))^2) / n())
+) -> results)
+
+
+
+#Step 6: creating the tibble 'r' by taking a random sample of size 100 from each decade
+# and determining the sample mean, standard deviation, and estimated standard error
+# for the runtimeMinutes variable (using dplyr and magrittr)
+
+(d %>% group_by(decade) %>%
+  summarise(
+  sampMean = sample_n(d, 100, replace = FALSE) %>% 
+    select(runtimeMinutes) %>% unlist() %>% mean(),
+  sampSD = sample_n(d, 100, replace = FALSE) %>% 
+    select(runtimeMinutes) %>% unlist() %>% sd()
+) %>% 
+  mutate("sampSE" = sampSD/10) -> r)
+
+
+#Step 7: Adding a new column 'popSE' to the 'results' tibble, then joining 'results'
+# and 'r' by 'decade' to produce a new tibble called 'comparison' (using dplyr)
+
+#The 'comparison' tibble seen below shows us all our values together so that we can
+# compare them. In the 'popSE' variable, we have an SE estimate produced by taking the
+# actual population SD for each decade and dividing it by sqrt(n). In the 'sampSE'
+# variable, we have an SE estimate produced by taking the single sample SD for each
+# decade and dividing it by sqrt(n). The SEs produced by these two methods are close-ish,
+# but the correspondence isn't great. Same goes for the means. This meager correspondence
+# is due to the fact that we only took one sample of size 100. Many more samples, or a
+# much larger single sample, would produce a better correspondence.
+
+results <- mutate(results, "popSE" = popSD/10)
+(comparison <- inner_join(results, r, "decade"))
+
+
+#Step 8: Taking 10,000 random samples of size 100 from each decade, storing the results
+# in six new lists (using base R). Each list contains 10,000 elements, each of which is
+# a tibble with 100 rows (where each row is a randomly selected row from the
+# original 'd'). We print the first element of the list 's20' below.
+# We will continue using the 20s decade to vizualise the outputs of following steps.
+
+reps <- 10000
+n <- 100
+
+s20 <- list()
+for (i in 1:reps) {
+  s20[[i]] <- sample(d[which(d[, "decade"] == "20s"), ], size = n, replace = FALSE)
+  }
+s30 <- list()
+for (i in 1:reps) {
+  s30[[i]] <- sample(d[which(d[, "decade"] == "30s"), ], size = n, replace = FALSE)
+  }
+s40 <- list()
+for (i in 1:reps) {
+  s40[[i]] <- sample(d[which(d[, "decade"] == "40s"), ], size = n, replace = FALSE)
+  }
+s50 <- list()
+for (i in 1:reps) {
+  s50[[i]] <- sample(d[which(d[, "decade"] == "50s"), ], size = n, replace = FALSE)
+  }
+s60 <- list()
+for (i in 1:reps) {
+  s60[[i]] <- sample(d[which(d[, "decade"] == "60s"), ], size = n, replace = FALSE)
+  }
+s70 <- list()
+for (i in 1:reps) {
+  s70[[i]] <- sample(d[which(d[, "decade"] == "70s"), ], size = n, replace = FALSE)
+  }
+head(s20, 1)
+
+
+#Step 9: Taking the mean of the 'runtimeMinutes' variable for each of our 10,000 samples,
+# doing this for each decade, and storing the results in six new vectors (using base R)
+
+m20 <- vector(length = reps)
+for(i in 1:reps) {
+  m20[i] <- mean(s20[[i]][["runtimeMinutes"]])
+}
+m30 <- vector(length = reps)
+for(i in 1:reps) {
+  m30[i] <- mean(s30[[i]][["runtimeMinutes"]])
+  }
+m40 <- vector(length = reps)
+for(i in 1:reps) {
+  m40[i] <- mean(s40[[i]][["runtimeMinutes"]])
+  }
+m50 <- vector(length = reps)
+for(i in 1:reps) {
+  m50[i] <- mean(s50[[i]][["runtimeMinutes"]])
+  }
+m60 <- vector(length = reps)
+for(i in 1:reps) {
+  m60[i] <- mean(s60[[i]][["runtimeMinutes"]])
+  }
+m70 <- vector(length = reps)
+for(i in 1:reps) {
+  m70[i] <- mean(s70[[i]][["runtimeMinutes"]])
+  }
+str(m20)
+
+#Step 10: Doing the same thing as in Step 9, but for SD rather than mean
+
+sd20 <- vector(length = reps)
+for(i in 1:reps) {
+  sd20[i] <- sd(s20[[i]][["runtimeMinutes"]])
+}
+sd30 <- vector(length = reps)
+for(i in 1:reps) {
+  sd30[i] <- sd(s30[[i]][["runtimeMinutes"]])
+  }
+sd40 <- vector(length = reps)
+for(i in 1:reps) {
+  sd40[i] <- sd(s40[[i]][["runtimeMinutes"]])
+  }
+sd50 <- vector(length = reps)
+for(i in 1:reps) {
+  sd50[i] <- sd(s50[[i]][["runtimeMinutes"]])
+  }
+sd60 <- vector(length = reps)
+for(i in 1:reps) {
+  sd60[i] <- sd(s60[[i]][["runtimeMinutes"]])
+  }
+sd70 <- vector(length = reps)
+for(i in 1:reps) {
+  sd70[i] <- sd(s70[[i]][["runtimeMinutes"]])
+  }
+str(sd20)
+
+
+#Step 11: combining the results of the previous two steps (using tibble)
+# This should satisfy the final part of this challenge. Each of the resultant 'sampDist'
+# tibbles contains what we were looking for -- two sampling distributions (one for mean
+# and one for sd) for each decade, produced by taking the means and standard deviations
+# of each of the 10,000, 100-size samples taken above.
+
+#Taking the standard deviation of the 'm20' column in the 'sampDist20' tibble (or simply
+# taking the mean of the 'm20' vector we already produced above) would provide us with
+# the true Standard Error for the 'runtimeMinutes' variable for the 20s. Due to the large
+# number of samples, this SE should correspond nicely to the estimated SE produced by
+# dividing the population sd by sqrt(n). 
+
+sampDist20 <- tibble("m20" = m20, "sd20" = sd20)
+sampDist30 <- tibble("m30" = m30, "sd30" = sd30)
+sampDist40 <- tibble("m40" = m40, "sd40" = sd40)
+sampDist50 <- tibble("m50" = m50, "sd50" = sd50)
+sampDist60 <- tibble("m60" = m60, "sd60" = sd60)
+sampDist70 <- tibble("m70" = m70, "sd70" = sd70)
+
+head(sampDist20)
+```
+
+## Challenge 2
+```{r}
+
+#Probability that our primatologist will hear 13 or fewer calls during any given session
+(ppois(13, lambda = 18))
+
+#Probability that our primatologist will hear no calls during a session
+(dpois(0, lambda = 18))
+
+#Probability that our primatologist will hear exactly 7 calls during a session
+(dpois(7, lambda = 18))
+
+#Probability that our primatologist will hear more than 20 calls during a session
+(1 - ppois(20, lambda = 18))
+
+#Plotting the PMF (using mosaic)
+(p1 <- plotDist("pois", xlim = c(0, 40), lambda = 18, main = "Poisson PMF for 0 <= x <= 40 and lambda = 18", xlab = "x", ylab = "Pr(X=x)"))
+
+#Generating a random sample of size 520 from our Poisson distribution
+s <- rpois(n = 520, lambda = 18)
+str(s)
+
+#Plotting our sample as a histogram (using mosaic)
+#We see decent correspondence between the distributions plotted by p2 and p1. It's not
+# perfect, but the peak around 18 is at least clear in the 's' histogram. Presumably, the
+# larger our number of samples, the more closely the distribution seen in our 's'
+# histogram will resemble our PMF
+p2 <- histogram(s, xlim = c(0, 40))
+p2
+```
+
+## Challenge 3
+```{r message = FALSE}
+
+#Things get a little messy from here on out... Sorry about that :/
+
+#Step 1: creating the tibble 'd' (using readr)
+d <- read_csv("https://raw.githubusercontent.com/difiore/ADA-datasets/master/zombies.csv")
+head(d)
+
+#checking for NAs
+(any(is.na(d)))
+
+#making population mean and sd for all the quantitative variables
+(d %>%
+  summarise(
+  HeightMean = mean(height),
+  HeightSD = sqrt(sum((height - mean(height))^2) / n()),
+  WeightMean = mean(weight),
+  WeightSD = sqrt(sum((weight - mean(weight))^2) / n()),
+  AgeMean = mean(age),
+  AgeSD = sqrt(sum((age - mean(age))^2) / n()),
+  ZomKillMean = mean(zombies_killed),
+  ZomKillSD = sqrt(sum((zombies_killed - mean(zombies_killed))^2) / n()),
+  YrsEduMean = mean(years_of_education),
+  YrsEduSD = sqrt(sum((years_of_education - mean(years_of_education))^2) / n()),
+) -> popvals)
+
+
+#Creating bivariate scatterplots for height/age and weight/age.
+# They seem related in that both height and weight tend to increase with age
+
+p1 <- ggplot(d, aes(x = height, y = age)) + geom_point()
+p2 <- ggplot(d, aes(x = weight, y = age)) + geom_point()
+grid.arrange(p1, p2, nrow = 1)
+
+
+#Creating QQ plots to test for normality. Height, weight, and age appear to be
+# normally distributed based on the plots, while zombies killed and years of 
+# education seem to be not normally distributed. I don't know how to figure
+# out which distribution they come from, but they seem to follow the same pattern
+
+par(mfrow = c(1, 5))
+qqnorm(d[["height"]], main = "QQ Plot - height")
+qqline(d[["height"]], col = "gray")
+
+qqnorm(d[["weight"]], main = "QQ Plot - weight")
+qqline(d[["weight"]], col = "gray")
+
+qqnorm(d[["age"]], main = "QQ Plot - age")
+qqline(d[["age"]], col = "gray")
+
+qqnorm(d[["zombies_killed"]], main = "QQ Plot - Zombies_killed")
+qqline(d[["zombies_killed"]], col = "gray")
+
+qqnorm(d[["years_of_education"]], main = "QQ Plot - years_of_education")
+qqline(d[["years_of_education"]], col = "gray")
+
+
+
+#Taking a random sample of size 30 from 'd' to create a new tibble 's'
+(s <- sample_n(d, size = 30, replace = FALSE))
+
+
+
+#Generating a new tibble 'sampvals' containing the sample mean, sample SD, and
+# SE estimate for each of the numeric variables in 's'.
+(s %>%
+  summarise(
+  HeightMean = mean(height),
+  HeightSD = sd(height),
+  WeightMean = mean(weight),
+  WeightSD = sd(weight),
+  AgeMean = mean(age),
+  AgeSD = sd(age),
+  ZomKillMean = mean(zombies_killed),
+  ZomKillSD = sd(zombies_killed),
+  YrsEduMean = mean(years_of_education),
+  YrsEduSD = sd(years_of_education),
+) %>% 
+    mutate("HeightSE" = HeightSD / sqrt(30)) %>%
+    mutate("WeightSE" = WeightSD / sqrt(30)) %>%
+    mutate("AgeSE" = AgeSD / sqrt(30)) %>%
+    mutate("ZomKillSE" = ZomKillSD / sqrt(30)) %>%
+    mutate("YrsEduSE" = YrsEduSD / sqrt(30))
+  -> sampvals)
+
+
+
+#Generating CIs for each of the means found in 'sampvals'
+(HeightCI <- sampvals[["HeightMean"]] + c(-1, 1) * qt(1 - 0.05 / 2, df = 29) * sampvals[["HeightSE"]])
+
+(WeightCI <- sampvals[["WeightMean"]] + c(-1, 1) * qt(1 - 0.05 / 2, df = 29) * sampvals[["WeightSE"]])
+
+(AgeCI <- sampvals[["AgeMean"]] + c(-1, 1) * qt(1 - 0.05 / 2, df = 29) * sampvals[["AgeSE"]])
+
+(ZomKillCI <- sampvals[["ZomKillMean"]] + c(-1, 1) * qt(1 - 0.05 / 2, df = 29) * sampvals[["ZomKillSE"]])
+
+(YrsEduCI <- sampvals[["YrsEduMean"]] + c(-1, 1) * qt(1 - 0.05 / 2, df = 29) * sampvals[["YrsEduSE"]])
+
+
+
+#Generating a list 's2' containing 99 tibbles, each of which contains 30 randomly
+# sampled rows from our original 'd'. 
+
+reps <- 99
+n <- 30
+
+s2 <- list()
+for (i in 1:reps) {
+  s2[[i]] <- sample(d, size = n, replace = FALSE)
+  }
+
+#Generating 5 new vectors of length 99. The first element of 'S2HeightMean' is the
+# mean of the 30 values stored in the 'HeightMean' column of the tibble that is the
+# first element of the list 's2'. And so on.
+s2HeightMean <- vector(length = reps)
+for(i in 1:reps) {
+  s2HeightMean[i] <- mean(s2[[i]][["height"]])
+}
+
+s2WeightMean <- vector(length = reps)
+for(i in 1:reps) {
+  s2WeightMean[i] <- mean(s2[[i]][["weight"]])
+}
+
+s2AgeMean <- vector(length = reps)
+for(i in 1:reps) {
+  s2AgeMean[i] <- mean(s2[[i]][["age"]])
+}
+
+s2ZomKillMean <- vector(length = reps)
+for(i in 1:reps) {
+  s2ZomKillMean[i] <- mean(s2[[i]][["zombies_killed"]])
+}
+
+s2YrsEduMean <- vector(length = reps)
+for(i in 1:reps) {
+  s2YrsEduMean[i] <- mean(s2[[i]][["years_of_education"]])
+}
+
+#Completing the sampling distributions for each variable by combining our 99 means
+# with our initial, single-sample mean. Doing some renaming, just because.
+s2HeightMean[100] <- sampvals[["HeightMean"]]
+SampDistHeight <- s2HeightMean
+
+s2WeightMean[100] <- sampvals[["WeightMean"]]
+SampDistWeight <- s2WeightMean
+
+s2AgeMean[100] <- sampvals[["AgeMean"]]
+SampDistAge <- s2AgeMean
+
+s2ZomKillMean[100] <- sampvals[["ZomKillMean"]]
+SampDistZomKill <- s2ZomKillMean
+
+s2YrsEduMean[100] <- sampvals[["YrsEduMean"]]
+SampDistYrsEdu <- s2YrsEduMean
+
+rm(s2HeightMean, s2WeightMean, s2AgeMean, s2ZomKillMean, s2YrsEduMean)
+
+
+
+#Calculating mean and SD for our sampling distributions
+
+Mean_SampDistHeight <- mean(SampDistHeight)
+SD_SampDistHeight <- sd(SampDistHeight)
+
+Mean_SampDistWeight <- mean(SampDistWeight)
+SD_SampDistWeight <- sd(SampDistWeight)
+
+Mean_SampDistAge <- mean(SampDistAge)
+SD_SampDistAge <- sd(SampDistAge)
+
+Mean_SampDistZomKill <- mean(SampDistZomKill)
+SD_SampDistZomKill <- sd(SampDistZomKill)
+
+Mean_SampDistYrsEdu <- mean(SampDistYrsEdu)
+SD_SampDistYrsEdu <- sd(SampDistYrsEdu)
+
+
+#Comparing SD from the sampling distribution (which is the SE) to the SEs estimates from
+# our single sample 's' and from our population 'd'. First, we need to determine the SE
+# estimates from our population SDs. Then we create a new matrix 'SEcomparison' and 
+# populate it with SEs from 'popvals', 'sampvals', and the sampling distribution SDs
+# we calculated directly above.
+
+popvals %<>% 
+    mutate("HeightSE" = HeightSD / sqrt(30)) %>%
+    mutate("WeightSE" = WeightSD / sqrt(30)) %>%
+    mutate("AgeSE" = AgeSD / sqrt(30)) %>%
+    mutate("ZomKillSE" = ZomKillSD / sqrt(30)) %>%
+    mutate("YrsEduSE" = YrsEduSD / sqrt(30))
+  
+SEcomparison <- matrix(nrow = 3, ncol = 6)
+colnames(SEcomparison) <- c("Source of SE", "Height", "Weight", "Age", "Zombies Killed", "Years of Education")
+
+SEcomparison[ , 1] <- c("Population", "Single Sample", "Sampling Distribution")
+
+SEcomparison[1, 2] <- popvals[["HeightSE"]]
+SEcomparison[2, 2] <- sampvals[["HeightSE"]]
+SEcomparison[3, 2] <- SD_SampDistHeight
+
+SEcomparison[1, 3] <- popvals[["WeightSE"]]
+SEcomparison[2, 3] <- sampvals[["WeightSE"]]
+SEcomparison[3, 3] <- SD_SampDistWeight
+
+SEcomparison[1, 4] <- popvals[["AgeSE"]]
+SEcomparison[2, 4] <- sampvals[["AgeSE"]]
+SEcomparison[3, 4] <- SD_SampDistAge
+
+SEcomparison[1, 5] <- popvals[["ZomKillSE"]]
+SEcomparison[2, 5] <- sampvals[["ZomKillSE"]]
+SEcomparison[3, 5] <- SD_SampDistZomKill
+
+SEcomparison[1, 6] <- popvals[["YrsEduSE"]]
+SEcomparison[2, 6] <- sampvals[["YrsEduSE"]]
+SEcomparison[3, 6] <- SD_SampDistYrsEdu
+
+(SEcomparison <- as_tibble(SEcomparison))
+
+#The resulting matrix shows us the SEs obtained from each of the three methods 
+#side by side. The SE estimates for our single sample deviate somewhat from the 
+# other two, which are very close. Still, overall, all three values correspond 
+# well with each other.
+
+#Finally, we visualize our 5 sampling distributions using histograms and QQ-plots.
+# Each of our sampling distributions seems to roughly approximate a normal distribution,
+# even the ones whose original distributions were not normal.
+par(mfrow = c(1, 5))
+
+p1 <- histogram(SampDistHeight)
+p2 <- histogram(SampDistWeight)
+p3 <- histogram(SampDistAge)
+p4 <- histogram(SampDistZomKill)
+p5 <- histogram(SampDistYrsEdu)
+grid.arrange(p1, p2, p3, p4, p5, nrow = 2)
+
+
+qqnorm(SampDistHeight, main = "SampDistHeight")
+qqline(SampDistHeight, col = "gray")
+
+qqnorm(SampDistWeight, main = "SampDistWeight")
+qqline(SampDistWeight, col = "gray")
+
+qqnorm(SampDistAge, main = "SampDistAge")
+qqline(SampDistAge, col = "gray")
+
+qqnorm(SampDistZomKill, main = "SampDistZomKill")
+qqline(SampDistZomKill, col = "gray")
+
+qqnorm(SampDistYrsEdu, main = "SampDistYrsEdu")
+qqline(SampDistYrsEdu, col = "gray")
 ```
